@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-stegoforge.py — StegoForge CLI
+stegoforge.py — SecretLoom CLI and backwards-compatible StegoForge module
 
 Animated ASCII banner, interactive menu, and direct bypass arguments.
 All features accessible both interactively and via direct args.
@@ -38,8 +38,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = typer.Typer(
-    name="stegoforge",
-    help="StegoForge — The most complete steganography toolkit",
+    name="secretloom",
+    help="SecretLoom — weave data beneath the surface",
     invoke_without_command=True,
     no_args_is_help=False,
     rich_markup_mode="rich",
@@ -64,21 +64,19 @@ C_PURPLE  = "bold magenta"
 
 # ── ASCII Banner ──────────────────────────────────────────────────────────────
 BANNER = r"""
- ███████╗████████╗███████╗ ██████╗  ██████╗ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
- ██╔════╝╚══██╔══╝██╔════╝██╔════╝ ██╔═══██╗██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
- ███████╗   ██║   █████╗  ██║  ███╗██║   ██║█████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
- ╚════██║   ██║   ██╔══╝  ██║   ██║██║   ██║██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
- ███████║   ██║   ███████╗╚██████╔╝╚██████╔╝██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
- ╚══════╝   ╚═╝   ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+  ┌──────────────────────────────────────────┐
+  │  S E C R E T L O O M                     │
+  │  weave data beneath the surface          │
+  └──────────────────────────────────────────┘
 """
 
 TAGLINES = [
-    "Advanced Heuristics  ·  Argon2id Key Derivation  ·  Polymorphic LSB",
-    "Zero-Day Survivability  ·  Wet-Paper Error Correction  ·  Audio Phase Codes",
-    "Forensic Invisibility  ·  Network Covert Channels  ·  Denial Mechanics",
-    "Secure Dead Drops  ·  Curve25519 Key Exchange  ·  AES-256-GCM",
+    "Local processing  ·  Argon2id  ·  AES-256-GCM",
+    "Image  ·  Audio  ·  Video  ·  Document carriers",
+    "Steganalysis  ·  Capacity planning  ·  Survival testing",
+    "Private by design  ·  No account  ·  No cloud",
 ]
-PRIMARY_TAGLINE = "Infiltrate Digital Carriers  ·  Evade Cryptanalysis"
+PRIMARY_TAGLINE = "Hide  ·  Reveal  ·  Inspect"
 
 UI_ANIMATION_ENABLED = os.getenv("STEGOFORGE_FAST_UI", "0") not in ("1", "true", "TRUE", "yes", "YES")
 
@@ -94,9 +92,17 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _environment_key() -> str:
+    """Read the SecretLoom key while preserving the original variable name."""
+    return os.getenv("SECRETLOOM_KEY", os.getenv("STEGOFORGE_KEY", ""))
+
+
 UI_STAGE_DELAY = _env_float("STEGOFORGE_UI_STAGE_DELAY", 0.45)
 UI_TRANSITION_DELAY = _env_float("STEGOFORGE_UI_TRANSITION_DELAY", 0.55)
-GITHUB_REPO = os.getenv("STEGOFORGE_GITHUB_REPO", "Nour833/StegoForge").strip()
+GITHUB_REPO = os.getenv(
+    "SECRETLOOM_GITHUB_REPO",
+    os.getenv("STEGOFORGE_GITHUB_REPO", "dlpwaters/secretloom"),
+).strip()
 GITHUB_RELEASES_LATEST_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 
@@ -143,7 +149,7 @@ def _menu_transition(action: str):
 
 
 def print_banner():
-    """Print the animated StegoForge banner."""
+    """Print the animated SecretLoom banner."""
     banner_text = Text()
     lines = BANNER.strip('\n').split('\n')
     colors = ["#00ffff", "#00dfff", "#00bfff", "#009fff", "#007fff", "#005fff"]
@@ -199,7 +205,7 @@ def print_banner():
 
     panel = Panel(
         Align.center(info_text),
-        title="[bold white]StegoForge[/bold white]",
+        title="[bold white]SecretLoom[/bold white]",
         subtitle="[bold bright_yellow]Made by nour833[/bold bright_yellow]",
         border_style="cyan",
         box=box.ROUNDED,
@@ -218,7 +224,7 @@ def _version_tuple(value: str) -> tuple[int, ...]:
 
 
 def _current_version() -> str:
-    env_version = str(os.getenv("STEGOFORGE_VERSION", "")).strip()
+    env_version = str(os.getenv("SECRETLOOM_VERSION", os.getenv("STEGOFORGE_VERSION", ""))).strip()
     if env_version:
         return env_version
 
@@ -228,9 +234,12 @@ def _current_version() -> str:
     try:
         from importlib.metadata import PackageNotFoundError, version
         try:
-            return version("stegoforge")
+            return version("secretloom")
         except PackageNotFoundError:
-            return "0.0.0"
+            try:
+                return version("stegoforge")
+            except PackageNotFoundError:
+                return "0.0.0"
     except Exception:
         return "0.0.0"
 
@@ -266,10 +275,10 @@ def _manual_update_command(install_kind: str) -> str:
 
     if install_kind == "python-package":
         py_exec = Path(sys.executable).resolve()
-        return f'"{py_exec}" -m pip install --upgrade stegoforge'
+        return f'"{py_exec}" -m pip install --upgrade secretloom'
 
     if install_kind == "system-package":
-        return "Download the latest .deb from GitHub Releases or update via your system package manager (e.g. apt upgrade stegoforge)."
+        return "Download the latest release package from GitHub or update via your system package manager."
 
     return ""
 
@@ -350,7 +359,7 @@ def _select_release_asset(assets: list[dict]) -> Optional[dict]:
             # OS match but architecture not stated; keep as lower-priority fallback.
             score += 1
 
-        if lower.startswith("stegoforge"):
+        if lower.startswith(("secretloom", "stegoforge")):
             score += 1
 
         if _is_archive_asset(name):
@@ -432,7 +441,7 @@ def _download_release_asset(url: str, target: Path):
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "StegoForge-Updater",
+            "User-Agent": "SecretLoom-Updater",
             "Accept": "application/octet-stream",
         },
     )
@@ -491,7 +500,7 @@ def op_update(check_only: bool = False, auto_apply: bool = False) -> dict:
     req = urllib.request.Request(
         GITHUB_RELEASES_LATEST_URL,
         headers={
-            "User-Agent": "StegoForge-Updater",
+            "User-Agent": "SecretLoom-Updater",
             "Accept": "application/vnd.github+json",
         },
     )
@@ -843,7 +852,7 @@ def op_encode(
     method = method or auto_detect_method(str(carrier_path))
 
     # Resolve key from env var fallback before any encryption/placement logic.
-    key = key or os.getenv("STEGOFORGE_KEY", "")
+    key = key or _environment_key()
 
     profile = None
     if target:
@@ -862,7 +871,7 @@ def op_encode(
     from core.crypto import aes
     if decoy and decoy_key:
         if not key:
-            raise ValueError("Decoy mode requires a real payload key. Pass -k / --key or set STEGOFORGE_KEY.")
+            raise ValueError("Decoy mode requires a real payload key. Pass -k / --key or set SECRETLOOM_KEY.")
         from core.crypto import decoy as decoy_mod
         decoy_payload = Path(decoy).read_bytes()
         embed_bytes = decoy_mod.encode_dual(decoy_payload, decoy_key, payload_bytes, key)
@@ -1051,7 +1060,7 @@ def op_decode(
 
     stego_bytes = file_path.read_bytes()
     # Resolve key from env var fallback
-    key = key or os.getenv("STEGOFORGE_KEY", "")
+    key = key or _environment_key()
     ext = file_path.suffix.lower()
     methods_to_try = [method] if method else []
     if not methods_to_try:
@@ -1581,9 +1590,9 @@ def op_batch_encode(
     wet_paper: bool,
 ) -> dict:
     """Encode a payload into every compatible carrier file in a directory."""
-    key = key or os.getenv("STEGOFORGE_KEY", "")
+    key = key or _environment_key()
     if not key:
-        raise ValueError("Encryption key required. Pass -k / --key or set STEGOFORGE_KEY.")
+        raise ValueError("Encryption key required. Pass -k / --key or set SECRETLOOM_KEY.")
 
     bd = Path(batch_dir)
     if not bd.is_dir():
@@ -1759,7 +1768,7 @@ def print_encode_result(result: dict):
     )
     if extra_lines:
         panel_content += "\n" + "\n".join(extra_lines)
-    console.print(Panel(panel_content, title=f"[{C_TITLE}]StegoForge — Encode Result[/{C_TITLE}]",
+    console.print(Panel(panel_content, title=f"[{C_TITLE}]SecretLoom — Hide Result[/{C_TITLE}]",
                         border_style="cyan", padding=(1, 2)))
 
 
@@ -1776,7 +1785,7 @@ def print_decode_result(result: dict):
         f"  [dim]Payload   :[/dim]  {result['payload_size']:,} bytes"
         f"{wet_line}"
     )
-    console.print(Panel(panel_content, title=f"[{C_TITLE}]StegoForge — Decode Result[/{C_TITLE}]",
+    console.print(Panel(panel_content, title=f"[{C_TITLE}]SecretLoom — Reveal Result[/{C_TITLE}]",
                         border_style="green", padding=(1, 2)))
 
 
@@ -1784,7 +1793,7 @@ def print_detect_results(report: dict):
     console.print(Panel(
         f"[{C_ACCENT}]File:[/{C_ACCENT}] {report['file']}\n"
         f"[{C_ACCENT}]Detectors run:[/{C_ACCENT}] {report['detectors_run']}",
-        title=f"[{C_TITLE}]StegoForge — Detection Report[/{C_TITLE}]",
+        title=f"[{C_TITLE}]SecretLoom — Detection Report[/{C_TITLE}]",
         border_style="blue",
     ))
 
@@ -1802,7 +1811,7 @@ def print_ctf_report(report: dict):
         f"[dim]Size   :[/dim] {report['file_size']:,} bytes\n"
         f"[{verdict_color}][dim]Verdict:[/dim] {verdict}  ({confidence_pct}% confidence)[/{verdict_color}]"
     )
-    console.print(Panel(header, title=f"[{C_TITLE}]StegoForge — CTF Analysis Report[/{C_TITLE}]",
+    console.print(Panel(header, title=f"[{C_TITLE}]SecretLoom — Challenge Report[/{C_TITLE}]",
                         border_style="magenta", padding=(1, 2)))
 
     for r in report["results"]:
@@ -1846,7 +1855,7 @@ def print_capacity_result(result: dict):
             f"    [dim]{v.get('capacity_note')}[/dim]"
         )
 
-    console.print(Panel(panel_content, title=f"[{C_TITLE}]StegoForge — Capacity Check[/{C_TITLE}]",
+    console.print(Panel(panel_content, title=f"[{C_TITLE}]SecretLoom — Capacity Check[/{C_TITLE}]",
                         border_style="yellow", padding=(1, 2)))
 
 
@@ -1869,7 +1878,7 @@ def print_diff_result(result: dict):
         )
         if result.get("heatmap"):
             content += f"\n  [{C_INFO}]Heatmap saved:[/{C_INFO}] {result['heatmap']}\n"
-        console.print(Panel(content, title=f"[{C_TITLE}]StegoForge — Stego Diff (Image)[/{C_TITLE}]",
+        console.print(Panel(content, title=f"[{C_TITLE}]SecretLoom — Carrier Diff (Image)[/{C_TITLE}]",
                             border_style="cyan", padding=(1, 2)))
     elif kind == "audio":
         content = (
@@ -1878,7 +1887,7 @@ def print_diff_result(result: dict):
             f"  [dim]Differing bytes:[/dim] {result['differing_bytes']:,} "
             f"({result['differing_percent']}%)\n"
         )
-        console.print(Panel(content, title=f"[{C_TITLE}]StegoForge — Stego Diff (Audio)[/{C_TITLE}]",
+        console.print(Panel(content, title=f"[{C_TITLE}]SecretLoom — Carrier Diff (Audio)[/{C_TITLE}]",
                             border_style="cyan", padding=(1, 2)))
     else:
         content = (
@@ -1886,7 +1895,7 @@ def print_diff_result(result: dict):
             f"  [dim]Stego    :[/dim] {result['stego']}\n\n"
             f"  [dim]Differing bytes:[/dim] {result.get('differing_bytes', 'N/A')}\n"
         )
-        console.print(Panel(content, title=f"[{C_TITLE}]StegoForge — Stego Diff (Binary)[/{C_TITLE}]",
+        console.print(Panel(content, title=f"[{C_TITLE}]SecretLoom — Carrier Diff (Binary)[/{C_TITLE}]",
                             border_style="cyan", padding=(1, 2)))
 
 
@@ -1897,7 +1906,7 @@ def print_batch_result(result: dict):
     failed = result["failed"]
 
     table = Table(
-        title=f"[{C_TITLE}]StegoForge — Batch Encode Results[/{C_TITLE}]",
+        title=f"[{C_TITLE}]SecretLoom — Batch Hide Results[/{C_TITLE}]",
         box=box.ROUNDED,
         border_style="cyan",
         show_lines=True,
@@ -2227,7 +2236,7 @@ def interactive_update():
 
     if result.get("applied"):
         console.print(f"[{C_SUCCESS}]Update applied successfully.[/{C_SUCCESS}]")
-        console.print(f"[{C_DIM}]Restart StegoForge to run the new version.[/{C_DIM}]")
+        console.print(f"[{C_DIM}]Restart SecretLoom to run the new version.[/{C_DIM}]")
     elif result.get("downloaded_path"):
         console.print(f"[{C_SUCCESS}]Update downloaded:[/{C_SUCCESS}] {result['downloaded_path']}")
         if platform.system() == "Windows" and getattr(sys, "frozen", False):
@@ -2253,7 +2262,7 @@ def interactive_menu():
         ("[bold cyan]9[/bold cyan]", "Update",    "Check GitHub for newer releases and update"),
         ("[bold cyan]d[/bold cyan]", "Diff",      "Compare original vs stego — pixel heatmap"),
         ("[bold cyan]b[/bold cyan]", "Batch",     "Encode payload into every carrier in a folder"),
-        ("[bold cyan]q[/bold cyan]", "Quit",      "Exit StegoForge"),
+        ("[bold cyan]q[/bold cyan]", "Quit",      "Exit SecretLoom"),
     ]
 
     table = Table(box=box.ROUNDED, show_header=False, border_style="cyan", padding=(0, 2))
@@ -2304,7 +2313,7 @@ def interactive_menu():
                 _menu_transition("Dead Drop")
                 console.print(
                     f"[{C_INFO}]Use CLI subcommands:[/{C_INFO}] "
-                    "stegoforge deadrop post|check|monitor and stegoforge deadrop keyx initiate|complete"
+                    "secretloom deadrop post|check|monitor and secretloom deadrop keyx initiate|complete"
                 )
             elif choice == "9" or choice == "update":
                 _menu_transition("Update")
@@ -2355,7 +2364,7 @@ def _launch_web(port: int = 5000):
 
 @app.callback(invoke_without_command=True)
 def main_callback(ctx: typer.Context):
-    """StegoForge — The most complete open-source steganography toolkit."""
+    """SecretLoom — a private, local-first steganography workbench."""
     sysmgr.bootstrap_if_needed()
     if ctx.invoked_subcommand is None:
         interactive_menu()
@@ -2416,7 +2425,7 @@ def cmd_update(
 
     if result.get("applied"):
         console.print(f"[{C_SUCCESS}]Update applied successfully.[/{C_SUCCESS}]")
-        console.print(f"[{C_DIM}]Restart StegoForge to run the new version.[/{C_DIM}]")
+        console.print(f"[{C_DIM}]Restart SecretLoom to run the new version.[/{C_DIM}]")
     elif result.get("downloaded_path"):
         console.print(f"[{C_SUCCESS}]Update downloaded:[/{C_SUCCESS}] {result['downloaded_path']}")
         if platform.system() == "Windows" and getattr(sys, "frozen", False):
@@ -2919,8 +2928,8 @@ def cmd_diff(
     Saves a heatmap PNG where bright regions indicate modified pixels.
 
     Examples:
-      stegoforge diff -c cover.png -s stego.png
-      stegoforge diff -c cover.png -s stego.png --save-heatmap report_heat.png --json
+      secretloom diff -c cover.png -s stego.png
+      secretloom diff -c cover.png -s stego.png --save-heatmap report_heat.png --json
     """
     try:
         result = op_diff(carrier, stego, save_heatmap)
@@ -2940,7 +2949,7 @@ def cmd_diff(
 def cmd_batch(
     batch_dir:  str           = typer.Option(..., "-d", "--dir",       help="Directory containing carrier files"),
     payload:    str           = typer.Option(..., "-p", "--payload",   help="Payload file to embed in each carrier"),
-    key:        str           = typer.Option("",  "-k", "--key",       help="Encryption passphrase (or set STEGOFORGE_KEY env var)"),
+    key:        str           = typer.Option("",  "-k", "--key",       help="Encryption passphrase (or set SECRETLOOM_KEY env var)"),
     output_dir: Optional[str]  = typer.Option(None,    "-o", "--output", help="Output directory for stego files (defaults to source dir)"),
     method:     Optional[str]  = typer.Option(None,    "--method",    help="Force encoding method (auto-detected per file if omitted)"),
     depth:      int            = typer.Option(1,        "--depth",     help="Bit depth 1-4 for LSB-based methods"),
@@ -2956,8 +2965,8 @@ def cmd_batch(
     (or in --output if specified).
 
     Examples:
-      stegoforge batch -d ./images/ -p secret.txt -k mykey
-      stegoforge batch -d ./carriers/ -p msg.pdf -k mykey -o ./out/ --depth 2 --json
+      secretloom batch -d ./images/ -p secret.txt -k mykey
+      secretloom batch -d ./carriers/ -p msg.pdf -k mykey -o ./out/ --depth 2 --json
     """
     try:
         result = op_batch_encode(batch_dir, payload, key, output_dir, method, depth, wet_paper)
@@ -2978,17 +2987,17 @@ def cmd_completion(
     shell: str = typer.Argument("bash", help="Shell type: bash | zsh | fish"),
 ):
     """
-    Prints a shell completion script for StegoForge commands.
+    Prints a shell completion script for SecretLoom commands.
 
     Usage:
       # bash (add to ~/.bashrc):
-      eval "$(stegoforge completion bash)"
+      eval "$(secretloom completion bash)"
 
       # zsh (add to ~/.zshrc):
-      eval "$(stegoforge completion zsh)"
+      eval "$(secretloom completion zsh)"
 
       # fish:
-      stegoforge completion fish | source
+      secretloom completion fish | source
     """
     commands = [
         "encode", "decode", "detect", "ctf", "capacity",
@@ -2996,8 +3005,8 @@ def cmd_completion(
     ]
     if shell == "bash":
         cmds_str = " ".join(commands)
-        script = f"""# StegoForge bash completion
-_stegoforge_complete() {{
+        script = f"""# SecretLoom bash completion
+_secretloom_complete() {{
     local cur prev words cword
     _init_completion || return
     local commands="{cmds_str}"
@@ -3017,25 +3026,26 @@ _stegoforge_complete() {{
     esac
     COMPREPLY=( $(compgen -W "--help" -- "$cur") )
 }}
-complete -F _stegoforge_complete stegoforge
+complete -F _secretloom_complete secretloom stegoforge
 """
         print(script)
     elif shell == "zsh":
         cmds_str = "\n    ".join(f"'{c}'" for c in commands)
-        script = f"""# StegoForge zsh completion
-#compdef stegoforge
-_stegoforge() {{
+        script = f"""# SecretLoom zsh completion
+#compdef secretloom stegoforge
+_secretloom() {{
     local -a commands
     commands=(
     {cmds_str}
     )
     _describe 'command' commands
 }}
-_stegoforge
+_secretloom
 """
         print(script)
     elif shell == "fish":
-        lines = [f"complete -c stegoforge -f -a '{c}'" for c in commands]
+        lines = [f"complete -c secretloom -f -a '{c}'" for c in commands]
+        lines.extend(f"complete -c stegoforge -f -a '{c}'" for c in commands)
         print("\n".join(lines))
     else:
         console.print(f"[{C_ERROR}]Unknown shell '{shell}'. Use: bash, zsh, or fish.[/{C_ERROR}]")

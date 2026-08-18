@@ -10,15 +10,19 @@ def _read_version() -> str:
     return str(namespace["__version__"])
 
 setup(
-    name="stegoforge",
+    name="secretloom",
     version=_read_version(),
-    description="The most complete open-source steganography toolkit",
+    description="A private, local-first steganography and forensics workbench",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    author="StegoForge",
+    author="SecretLoom contributors; based on StegoForge by Nour833",
     license="MIT",
-    packages=find_packages(),
-    include_package_data=True,
+    packages=find_packages(exclude=("tests", "tests.*")),
+    include_package_data=False,
+    package_data={
+        "web": ["templates/*", "static/*"],
+        "models": ["*.onnx"],
+    },
     py_modules=["stegoforge"],
     python_requires=">=3.10",
     install_requires=(
@@ -26,11 +30,15 @@ setup(
         open("requirements-web.txt").read().splitlines()
     ),
     project_urls={
-        "Source": "https://github.com/nour833/StegoForge",
-        "Bug Tracker": "https://github.com/nour833/StegoForge/issues",
-        "Changelog": "https://github.com/nour833/StegoForge/blob/main/CHANGELOG.md",
+        "Source": "https://github.com/dlpwaters/secretloom",
+        "Bug Tracker": "https://github.com/dlpwaters/secretloom/issues",
+        "Upstream": "https://github.com/Nour833/StegoForge",
+        "Changelog": "https://github.com/dlpwaters/secretloom/blob/main/CHANGELOG.md",
     },
     entry_points={
-        "console_scripts": ["stegoforge=stegoforge:app"]
+        "console_scripts": [
+            "secretloom=stegoforge:app",
+            "stegoforge=stegoforge:app",
+        ]
     },
 )

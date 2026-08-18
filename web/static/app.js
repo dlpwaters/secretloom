@@ -1,4 +1,4 @@
-/* StegoForge Web UI - Interactive JavaScript */
+/* SecretLoom Web UI - local-first interaction layer */
 'use strict';
 
 let latestCTFReport = null;
@@ -7,6 +7,15 @@ let platformProfiles = {};
 
 function $(id) {
   return document.getElementById(id);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function formatBytes(bytes) {
@@ -24,22 +33,44 @@ function hideLoading() {
   $('loading-overlay').style.display = 'none';
 }
 
-function activateTab(tabId) {
+const TOOL_TITLES = {
+  encode: 'Hide payload',
+  decode: 'Reveal payload',
+  detect: 'Scan carrier',
+  ctf: 'Challenge mode',
+  diff: 'Compare files',
+  capacity: 'Capacity',
+  survive: 'Survival lab',
+  help: 'Field guide',
+};
+
+function activateTab(tabId, updateHistory = false) {
+  if (!TOOL_TITLES[tabId] || !$(`tab-${tabId}`)) tabId = 'encode';
   document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
   const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
   const panel = $(`tab-${tabId}`);
   if (btn) btn.classList.add('active');
   if (panel) panel.classList.add('active');
+  if ($('active-tool-title')) $('active-tool-title').textContent = TOOL_TITLES[tabId];
+  document.title = `${TOOL_TITLES[tabId]} — SecretLoom`;
+  if (updateHistory && window.location.hash !== `#${tabId}`) {
+    window.history.pushState(null, '', `#${tabId}`);
+  }
+  document.body.classList.remove('nav-open');
+  if ($('mobile-nav-toggle')) $('mobile-nav-toggle').setAttribute('aria-expanded', 'false');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Tab navigation
 (function initTabs() {
   document.querySelectorAll('.tab-btn').forEach((btn) => {
-    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab, true));
   });
-  const initial = document.body.dataset.initialTab || 'encode';
+  const hashTab = window.location.hash.replace('#', '');
+  const initial = TOOL_TITLES[hashTab] ? hashTab : (document.body.dataset.initialTab || 'encode');
   activateTab(initial);
+  window.addEventListener('hashchange', () => activateTab(window.location.hash.replace('#', '')));
 })();
 
 function setupDropZone(dropEl, inputEl, infoEl) {
@@ -99,7 +130,7 @@ function updateFileInfo(input, infoEl, dropEl) {
     dropEl.classList.add('has-file');
     const textEl = dropEl.querySelector('.drop-text');
     if (textEl) {
-      textEl.innerHTML = `<strong style="color:var(--accent-green)">${file.name}</strong><br><small>${sizeStr}</small>`;
+      textEl.innerHTML = `<strong style="color:var(--accent-green)">${escapeHtml(file.name)}</strong><br><small>${sizeStr}</small>`;
     }
 
     const oldPreview = dropEl.querySelector('.video-preview');
@@ -118,6 +149,8 @@ function updateFileInfo(input, infoEl, dropEl) {
       dropEl.appendChild(video);
     }
   }
+
+  if (input.id === 'enc-carrier') updateMethodCompatibility(file);
 }
 
 [
@@ -142,10 +175,10 @@ function setupPasswordToggle(btnId, inputId) {
   btn.addEventListener('click', () => {
     if (input.type === 'password') {
       input.type = 'text';
-      btn.textContent = '🙈';
+      btn.textContent = 'Hide';
     } else {
       input.type = 'password';
-      btn.textContent = '👁';
+      btn.textContent = 'Show';
     }
   });
 }
@@ -194,6 +227,52 @@ toggleCollapse('platform-toggle', 'platform-content');
     renderDescription(initial);
   }
 })();
+
+const METHOD_COMPATIBILITY = {
+  imageLossless: ['lsb', 'adaptive-lsb', 'fingerprint-lsb', 'alpha', 'palette'],
+  imageJpeg: ['dct'],
+  video: ['video-dct', 'video-motion'],
+  audio: ['audio-lsb', 'phase', 'spectrogram'],
+  text: ['unicode', 'linguistic'],
+  pdf: ['pdf'],
+  docx: ['docx'],
+  xlsx: ['xlsx'],
+  pe: ['pe'],
+  elf: ['elf'],
+};
+
+function carrierMethodProfile(file) {
+  const ext = `.${String(file.name || '').split('.').pop().toLowerCase()}`;
+  if (['.png', '.bmp', '.webp'].includes(ext)) return { methods: METHOD_COMPATIBILITY.imageLossless, recommended: 'adaptive-lsb', family: 'lossless image' };
+  if (ext === '.gif') return { methods: ['palette'], recommended: 'palette', family: 'indexed image' };
+  if (['.jpg', '.jpeg'].includes(ext)) return { methods: METHOD_COMPATIBILITY.imageJpeg, recommended: 'dct', family: 'JPEG image' };
+  if (['.mp4', '.webm'].includes(ext)) return { methods: METHOD_COMPATIBILITY.video, recommended: 'video-motion', family: 'video' };
+  if (['.wav', '.flac', '.mp3', '.ogg'].includes(ext)) return { methods: METHOD_COMPATIBILITY.audio, recommended: 'audio-lsb', family: 'audio' };
+  if (['.txt', '.md'].includes(ext)) return { methods: METHOD_COMPATIBILITY.text, recommended: 'linguistic', family: 'text document' };
+  if (ext === '.pdf') return { methods: METHOD_COMPATIBILITY.pdf, recommended: 'pdf', family: 'PDF document' };
+  if (ext === '.docx') return { methods: METHOD_COMPATIBILITY.docx, recommended: 'docx', family: 'Word document' };
+  if (ext === '.xlsx') return { methods: METHOD_COMPATIBILITY.xlsx, recommended: 'xlsx', family: 'Excel workbook' };
+  if (['.exe', '.dll'].includes(ext)) return { methods: METHOD_COMPATIBILITY.pe, recommended: 'pe', family: 'PE binary' };
+  if (['.elf', '.bin'].includes(ext)) return { methods: METHOD_COMPATIBILITY.elf, recommended: 'elf', family: 'binary' };
+  return { methods: [], recommended: '', family: 'carrier' };
+}
+
+function updateMethodCompatibility(file) {
+  const profile = carrierMethodProfile(file);
+  const pills = document.querySelectorAll('#enc-method-pills .method-pill');
+  pills.forEach((pill) => {
+    const method = pill.dataset.method || '';
+    const compatible = !method || !profile.methods.length || profile.methods.includes(method);
+    pill.classList.toggle('incompatible', !compatible);
+    pill.classList.toggle('recommended', method === profile.recommended);
+    pill.setAttribute('aria-disabled', String(!compatible));
+    pill.title = compatible ? (pill.dataset.desc || '') : `Not compatible with this ${profile.family}`;
+  });
+  const desc = $('method-desc');
+  if (desc && profile.recommended) {
+    desc.textContent = `Auto recommends ${profile.recommended} for this ${profile.family}. Choose a specific method only when you need manual control.`;
+  }
+}
 
 // Depth sliders
 (function initDepth() {
@@ -525,7 +604,7 @@ function b64toBlob(b64Data, contentType = 'application/octet-stream') {
 
       const artifact = finalPayload.artifact;
       const dlName = finalPayload.download_name || 'stego.bin';
-      const href = `/artifact?path=${encodeURIComponent(artifact)}`;
+      const href = `/artifact?id=${encodeURIComponent(artifact)}`;
       result.innerHTML = `${renderSuccess('Encode completed successfully.')}
         <div class="result-card"><div class="result-title accent-title">Live Log</div><pre class="code-block">${logs.join('\n')}</pre></div>
         <div class="result-card">
@@ -566,7 +645,7 @@ function b64toBlob(b64Data, contentType = 'application/octet-stream') {
       const match = disposition.match(/filename="?([^\"]+)"?/);
       const filename = match ? match[1] : 'decoded_payload.bin';
       const contentType = response.headers.get('content-type') || 'application/octet-stream';
-      const sfrgHint = response.headers.get('x-stegoforge-hint') || '';
+      const sfrgHint = response.headers.get('x-secretloom-hint') || response.headers.get('x-stegoforge-hint') || '';
 
       const url = URL.createObjectURL(blob);
 
@@ -688,7 +767,7 @@ function b64toBlob(b64Data, contentType = 'application/octet-stream') {
                   <div>
                     <h4 style="margin: 0 0 6px 0; color: var(--accent-highlight); font-size: 1.05rem;">Encrypted Payload Extracted</h4>
                     <p style="margin: 0 0 8px 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.4;">
-                      The data was successfully ripped from the carrier, but it is an encrypted StegoForge object (<b>.sfrg</b> file).
+                      The data was extracted from the carrier, but it is an encrypted SecretLoom/StegoForge-compatible object (<b>.sfrg</b> file).
                     </p>
                     <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; color: var(--text-muted);">
                       <strong style="color: #fff;">How to decrypt it:</strong><br/>
@@ -1008,6 +1087,107 @@ function setupKeyStrengthMeter(inputId, meterId) {
 
 setupKeyStrengthMeter('enc-key', 'enc-key-strength');
 
+// ── Local key helpers ───────────────────────────────────────────────────────
+(function initKeyHelpers() {
+  const input = $('enc-key');
+  const generate = $('enc-key-generate');
+  const copy = $('enc-key-copy');
+  if (!input || !generate || !copy) return;
+
+  generate.addEventListener('click', () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_!@#$%';
+    const random = new Uint32Array(28);
+    crypto.getRandomValues(random);
+    input.value = Array.from(random, (value) => alphabet[value % alphabet.length]).join('');
+    input.type = 'text';
+    if ($('enc-key-toggle')) $('enc-key-toggle').textContent = 'Hide';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  });
+
+  copy.addEventListener('click', async () => {
+    if (!input.value) return;
+    await navigator.clipboard.writeText(input.value);
+    copy.textContent = 'Copied';
+    window.setTimeout(() => { copy.textContent = 'Copy key'; }, 1200);
+  });
+})();
+
+// ── Theme preference ────────────────────────────────────────────────────────
+(function initTheme() {
+  const toggle = $('theme-toggle');
+  const stored = localStorage.getItem('secretloom-theme');
+  const initial = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.body.dataset.theme = initial;
+  if (!toggle) return;
+  const updateLabel = () => {
+    const next = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+    toggle.setAttribute('aria-label', `Use ${next} theme`);
+    toggle.title = `Use ${next} theme`;
+  };
+  updateLabel();
+  toggle.addEventListener('click', () => {
+    document.body.dataset.theme = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('secretloom-theme', document.body.dataset.theme);
+    updateLabel();
+  });
+})();
+
+// ── Command palette ─────────────────────────────────────────────────────────
+(function initCommandPalette() {
+  const palette = $('command-palette');
+  const trigger = $('command-trigger');
+  const search = $('command-search');
+  const list = $('command-list');
+  if (!palette || !trigger || !search || !list) return;
+  let lastFocused = null;
+
+  const tools = Object.entries(TOOL_TITLES).map(([id, title]) => ({ id, title }));
+  const render = () => {
+    const query = search.value.trim().toLowerCase();
+    const matches = tools.filter((tool) => tool.title.toLowerCase().includes(query));
+    list.querySelectorAll('.command-item').forEach((node) => node.remove());
+    matches.forEach((tool, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `command-item${index === 0 ? ' active' : ''}`;
+      button.dataset.tool = tool.id;
+      button.innerHTML = `<span>${escapeHtml(tool.title)}</span><small>#${tool.id}</small>`;
+      button.addEventListener('click', () => {
+        activateTab(tool.id, true);
+        close();
+      });
+      list.appendChild(button);
+    });
+  };
+
+  const open = () => {
+    lastFocused = document.activeElement;
+    palette.hidden = false;
+    search.value = '';
+    render();
+    window.setTimeout(() => search.focus(), 0);
+  };
+  const close = () => {
+    palette.hidden = true;
+    if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+  };
+
+  trigger.addEventListener('click', open);
+  palette.querySelectorAll('[data-command-close]').forEach((node) => node.addEventListener('click', close));
+  search.addEventListener('input', render);
+  search.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') list.querySelector('.command-item')?.click();
+  });
+  document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      palette.hidden ? open() : close();
+    }
+    if (event.key === 'Escape' && !palette.hidden) close();
+  });
+})();
+
 // ── Carrier Drop Preview (Encode) ─────────────────────────────────────────────
 (function initCarrierPreview() {
   const carrierInput = $('enc-carrier');
@@ -1029,19 +1209,25 @@ setupKeyStrengthMeter('enc-key', 'enc-key-strength');
 // ── Mobile Nav Hamburger ──────────────────────────────────────────────────────
 (function initMobileNav() {
   const hamburger = $('mobile-nav-toggle');
-  const navMenu   = document.querySelector('.tab-nav');
-  if (!hamburger || !navMenu) return;
+  const sidebar = $('site-sidebar');
+  if (!hamburger || !sidebar) return;
   hamburger.addEventListener('click', () => {
-    const open = navMenu.classList.toggle('mobile-open');
+    const open = document.body.classList.toggle('nav-open');
     hamburger.setAttribute('aria-expanded', String(open));
-    hamburger.textContent = open ? '✕' : '☰';
+    hamburger.textContent = open ? '×' : '☰';
   });
-  // Close nav when a tab is selected on mobile
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      navMenu.classList.remove('mobile-open');
+      document.body.classList.remove('nav-open');
       hamburger.textContent = '☰';
       hamburger.setAttribute('aria-expanded', 'false');
     });
+  });
+  document.addEventListener('click', (event) => {
+    if (!document.body.classList.contains('nav-open')) return;
+    if (sidebar.contains(event.target) || hamburger.contains(event.target)) return;
+    document.body.classList.remove('nav-open');
+    hamburger.textContent = '☰';
+    hamburger.setAttribute('aria-expanded', 'false');
   });
 })();

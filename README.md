@@ -33,17 +33,22 @@ SecretLoom requires Python 3.10 or newer. Video workflows also need FFmpeg.
 git clone https://github.com/dlpwaters/secretloom.git
 cd secretloom
 
-python -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
-pip install -r requirements-web.txt
-pip install -e .
-
-secretloom web
+./install.sh
+secretloom
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The server binds to loopback only.
+The installer creates an isolated project environment, adds the `secretloom` shell command, and registers SecretLoom with Linux application launchers. Running `secretloom` opens the local workbench at [http://127.0.0.1:5000](http://127.0.0.1:5000); on Omarchy, you can also search for **SecretLoom** in the application launcher.
+
+Useful launcher controls:
+
+```bash
+secretloom --status     # Check the local workbench
+secretloom --stop       # Stop its background server
+secretloom --cli        # Open the interactive terminal interface
+secretloom --help       # Explore every CLI command
+```
+
+The server binds to loopback only.
 
 The legacy command is intentionally retained:
 

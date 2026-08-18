@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Hardened the local Flask service with safe upload names, validated bit depth, opaque artifact IDs, upload-limit errors, same-origin operation, no third-party font requests, and restrictive security headers.
 - Rewrote project documentation and added explicit upstream attribution in `README.md`, `NOTICE.md`, and the retained MIT license.
 - Added PEP 517 build metadata and SecretLoom executable metadata for packaged releases.
+- Added a one-command user installer, a bare `secretloom` launcher with persistent local-service lifecycle controls, and a native Omarchy/FreeDesktop application entry with a dedicated icon.
 
 ---
 

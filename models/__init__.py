@@ -1,0 +1,1 @@
+"""Bundled SecretLoom model assets."""

@@ -1,7 +1,20 @@
 # Changelog
 
-All notable changes to StegoForge are documented here.
+SecretLoom changes and inherited StegoForge release history are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+## [2.0.0] — 2026-08-17
+
+### SecretLoom product release
+
+- Renamed the derivative distribution and primary command to **SecretLoom**, while retaining the `stegoforge` command, module, payload marker, and local data directory for compatibility.
+- Rebuilt the web interface as a responsive local-first workbench with grouped navigation, clearer task language, progressive disclosure, a command palette, deep links, and light/dark themes.
+- Added carrier-aware method guidance, a cryptographically generated passphrase helper, and a diagnostic `/api/health` endpoint.
+- Hardened the local Flask service with safe upload names, validated bit depth, opaque artifact IDs, upload-limit errors, same-origin operation, no third-party font requests, and restrictive security headers.
+- Rewrote project documentation and added explicit upstream attribution in `README.md`, `NOTICE.md`, and the retained MIT license.
+- Added PEP 517 build metadata and SecretLoom executable metadata for packaged releases.
 
 ---
 

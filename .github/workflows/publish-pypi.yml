@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Publish SecretLoom to PyPI
 
 on:
   push:

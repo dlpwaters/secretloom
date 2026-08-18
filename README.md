@@ -1,293 +1,158 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Nour833/StegoForge/main/interface.gif" alt="StegoForge Dashboard" width="850">
+  <img src="web/static/stegoforge-favicon.svg" alt="SecretLoom mark" width="88">
 
-  # 🛡️ StegoForge
-  **The ultimate hybrid of steganography, digital forensics, and covert communications.**
+  # SecretLoom
 
-  [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-  [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)](https://github.com/Nour833/StegoForge/releases)
-  [![GitHub Stars](https://img.shields.io/github/stars/Nour833/StegoForge?style=for-the-badge&logo=github&color=gold)](https://github.com/Nour833/StegoForge/stargazers)
-  [![GitHub Downloads](https://img.shields.io/github/downloads/Nour833/StegoForge/total?style=for-the-badge&logo=github&color=brightgreen)](https://github.com/Nour833/StegoForge/releases)
-  [![CTF](https://img.shields.io/badge/CTF-Ready-red?style=for-the-badge)](#-3-blind-forensics--ctf-mode-zero-knowledge)
+  **Weave data beneath the surface.**
+
+  A private, local-first workbench for steganography, carrier analysis, and digital forensics.
+
+  [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-307657?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-307657?style=flat-square)](LICENSE)
+  [![Local first](https://img.shields.io/badge/processing-local--first-171b19?style=flat-square)](#privacy-and-security)
 </div>
 
----
+![SecretLoom workbench](docs/secretloom-workbench.png)
 
-## ⚡ Quick Launch (Standalone Binaries)
+SecretLoom is a redesigned and extended derivative of [Nour833/StegoForge](https://github.com/Nour833/StegoForge). It keeps the original engine, file format, detectors, and carrier support while providing a calmer interface, safer local server defaults, and clearer workflows. See [Attribution](#attribution) and [NOTICE.md](NOTICE.md) for provenance.
 
-StegoForge is a complex Python framework, but you shouldn't have to deal with broken environments when doing active forensics. We have compiled **zero-dependency, native executables** that automatically resolve their own AI and Media requirements.
+## What makes it different
 
-Head over to the **[Releases Page](https://github.com/Nour833/StegoForge/releases)** and download the binary for your OS.
-* No `pip install` required.
-* No `PATH` configurations.
-* **Just execute it.**
+- **A real workbench, not a wall of controls.** Tools are grouped into Create, Inspect, Plan, and Learn workflows with responsive two-column forms and progressive disclosure for advanced options.
+- **Carrier-aware guidance.** Selecting a carrier highlights compatible techniques and recommends a sensible method while preserving complete manual control.
+- **Private by default.** The workbench has no account, analytics, cloud storage, CDN fonts, or third-party browser assets.
+- **Practical local helpers.** Generate and copy a strong key locally, jump between tools with `Ctrl/Cmd + K`, deep-link directly to a tool, and keep a light or dark theme preference on the device.
+- **Hardened local service.** Upload names are sanitized, bit depth is validated, artifacts use opaque IDs, uploads are capped at 200 MB, and responses include a restrictive local security policy.
+- **Backwards compatible.** Existing `.sfrg` payloads, the `stegoforge` Python module, the `.stegoforge` data directory, and the original `stegoforge` command remain supported.
 
----
+## Quick start
 
-## 🚀 Quick Start in 30 Seconds
-
-```bash
-# 1. Hide a file inside an image (AES-256-GCM encrypted, auto-method)
-stegoforge encode -c photo.png -p secret.pdf -k "my-pass"
-
-# 2. Retrieve the hidden file
-stegoforge decode -f photo_stego.png -k "my-pass"
-
-# 3. CTF one-click forensic dump on any suspicious file
-stegoforge ctf -f suspicious.mp3
-
-# 4. Compare original vs stego — pixel heatmap
-stegoforge diff -c photo.png -s photo_stego.png
-
-# 5. Batch embed a secret into every carrier in a folder
-stegoforge batch -d ./carriers/ -p secret.txt -k "my-pass"
-
-# 6. Check capacity and stealth score of a carrier
-stegoforge capacity -c photo.png --depth 2
-
-# 7. Simulate Twitter recompression and test payload survives
-stegoforge encode -c photo.png -p secret.txt -k "my-pass" --target twitter --test-survival
-
-# 8. Launch the local web UI (no data ever leaves your machine)
-stegoforge web
-
-# Install tab-completion (bash)
-eval "$(stegoforge completion bash)"
-
-# Use env var to avoid key in shell history
-export STEGOFORGE_KEY="my-pass"
-stegoforge decode -f stego.png   # key read from env
-```
-
----
-
-## 🧠 What is StegoForge?
-
-> **The Concept in Plain English:** *Steganography is the art of hiding secrets in plain sight. StegoForge takes your secret message or file and mathematically weaves it into the pixels of a normal photo, the soundwaves of a song, or the frames of a video. To the rest of the world, it just looks like a regular meme or MP3 track. To you, it's an invisible vault.*
-
-StegoForge is a **modular, enterprise-grade steganography toolkit** engineered for the full lifecycle of covert data: from embedding payloads into images, audio, video, and active network protocols, to deploying machine-learning steganalysis to forcibly extract anomalies from suspicious carrier files. 
-
-Built for security researchers, CTF players, and digital forensics practitioners, it doesn't try to be one thing. It executes the entire forensic spectrum seamlessly.
-
-```
-$ stegoforge encode --carrier cover.png --payload secret.txt --key "mypassword" --method lsb
-[+] Payload encrypted with AES-256-GCM
-[+] Embedded 2048 bits across RGB channels (1-bit depth)
-[+] Output: cover_stego.png
-[+] Statistical profile: indistinguishable from baseline (chi² = 0.021)
-
-$ stegoforge ctf --file suspicious.mp3
-[*] Running all detectors on suspicious.mp3 ...
-[⏭] Chi-square LSB anomaly      SKIPPED
-[⏭] RS analysis                 SKIPPED 
-[!] Blind extractor found payload at: audio-lsb, depth=1, AES encrypted blob
-[+] Extracted 412 bytes → saved to extracted_payload.bin
-```
-
----
-
-## Feature Overview
-
-```
-stegoforge/
-├── Image Carriers          PNG · JPEG · BMP · GIF · WebP
-│   ├── LSB / Adaptive LSB  1–4 bit depth + WOW-style content-aware cost ordering
-│   ├── DCT + JND-safe cap  JPEG frequency-domain embedding + Watson-style perceptual budget
-│   ├── Fingerprint LSB     PRNU-aware embedding mode
-│   └── Alpha / Palette     Transparency and indexed-color channels
-│
-├── Video Carriers          MP4 · WebM
-│   ├── Video DCT           Keyframe embedding with block-cost ranking
-│   └── Video Motion        Temporal+texture masked block embedding (MP4)
-│
-├── Audio Carriers          WAV · FLAC · MP3 · OGG
-│   ├── Sample LSB          Psychoacoustic-style cost-ordered PCM LSB
-│   ├── Phase coding        Segment-phase encoding
-│   └── Spectrogram art     Visual payloads in spectrum domain
-│
-├── Document Carriers       TXT · PDF · DOCX · XLSX
-│   ├── Unicode whitespace  Adaptive insertion-point ranking (ZWSP/ZWNJ/ZWJ)
-│   ├── Linguistic mode     Key-aware synonym-channel text steganography
-│   ├── PDF streams         Object/stream/metadata injection
-│   └── Office XML          Custom XML parts and streams
-│
-├── Binary Carriers         ELF · PE/EXE/DLL (CLI)
-│   ├── ELF slack/notes     2-bit masked region-cost embedding
-│   └── PE slack/overlay    2-bit masked region-cost embedding
-│
-├── Network Covert Channels (CLI)
-│   ├── TCP field channels  ip_id, tcp_seq, ttl
-│   └── Timing channel      Inter-packet delay encoding
-│
-├── Crypto + Survivability
-│   ├── AES-256-GCM + Argon2
-│   ├── Decoy mode          Dual-payload plausible deniability
-│   ├── Wet-paper wrapping  Reed-Solomon resilience wrapper
-│   └── Platform profiles   Social-media-aware method selection/simulation
-│
-└── Interfaces
-  ├── CLI                 Hybrid-first grouped method selection + full command mode
-  ├── Web UI (Flask)      Grouped method pills, hybrid badges, local SSE streaming
-  └── CTF mode            One command, all relevant detectors, ranked report
-```
-
----
-
-## 💻 Developer Installation
-
-If you wish to build StegoForge from source or utilize the Python APIs natively:
+SecretLoom requires Python 3.10 or newer. Video workflows also need FFmpeg.
 
 ```bash
-git clone https://github.com/Nour833/StegoForge.git
-cd StegoForge
+git clone https://github.com/dlpwaters/secretloom.git
+cd secretloom
+
+python -m venv .venv
+source .venv/bin/activate
+
 pip install -r requirements.txt
 pip install -r requirements-web.txt
 pip install -e .
+
+secretloom web
 ```
 
-Fire up the Glassmorphism Web App instantly:
-```bash
-stegoforge web  # Automatically deploys at http://localhost:5000
-```
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The server binds to loopback only.
 
-> **Note on ML Architecture**: StegoForge implements true Machine Learning steganalysis. The very first time you boot the engine, it will silently interface with HuggingFace to download the ONNX CNN weights directly into your `~/.stegoforge/models` cache.
-
----
-
-## 🎨 Interactive Menu (Recommended for Beginners)
-
-Don't want to memorize terminal commands? Just run the tool on its own to access the interactive CLI!
+The legacy command is intentionally retained:
 
 ```bash
-stegoforge
+stegoforge web
 ```
 
-> The menu features a cinematic startup sequence, grouped method selection, and guided transitions between Encoding, Decoding, and Forensics.
+## The workbench
 
-**Pro-Tips for Automation:**
-- `STEGOFORGE_FAST_UI=1 stegoforge` skips animations for rapid, zero-delay bootups.
-- `STEGOFORGE_UI_STAGE_DELAY=0.45 stegoforge` fine-tunes the pacing of the visual display.
+| Workflow | Purpose |
+| --- | --- |
+| **Hide payload** | Encrypt and embed any payload into a compatible image, audio, video, document, or binary carrier. |
+| **Reveal payload** | Extract a payload with automatic method detection, inline previews, and correct download types. |
+| **Scan carrier** | Run selected statistical, metadata, ML, fingerprint, blind, and binary detectors. |
+| **Challenge mode** | Run the complete forensic pipeline, rank results, export JSON, and recover extractable payloads. |
+| **Compare files** | Compare clean and modified carriers and generate an amplified image heatmap. |
+| **Capacity** | Estimate per-method capacity, utilization, depth tradeoffs, and stealth score before embedding. |
+| **Survival lab** | Simulate platform processing and test whether a payload survives recompression or metadata stripping. |
+| **Field guide** | Learn the formats, methods, security model, and CLI without leaving the app. |
 
----
+## Carrier and method support
 
-## 💻 Advanced Command Line Interface
+| Carrier family | Formats | Methods |
+| --- | --- | --- |
+| Images | PNG, JPEG, BMP, GIF, WebP | LSB, adaptive LSB, DCT, fingerprint-aware LSB, alpha, palette |
+| Video | MP4, WebM | Keyframe DCT, motion-aware embedding |
+| Audio | WAV, FLAC, MP3, OGG | Sample LSB, phase coding, spectrogram |
+| Documents | TXT, PDF, DOCX, XLSX | Unicode whitespace, linguistic, PDF streams, Office XML |
+| Binaries | ELF, PE, EXE, DLL | Slack, note, and overlay embedding |
+| Network | TCP/IP and timing channels | CLI-only covert channel and dead-drop workflows |
 
-If you prefer raw terminal throughput, the CLI supports hyper-specific routing for all modules.
+Payload protection includes AES-256-GCM, Argon2id key derivation, decoy payloads, polymorphic traversal, Reed-Solomon wet-paper wrapping, and platform-aware survival profiles.
 
-### 🥷 1. Payload Encoding
+## CLI examples
+
 ```bash
-# Basic LSB into PNG
-stegoforge encode -c photo.png -p message.txt -k "passphrase"
+# Let SecretLoom select a carrier-aware method
+secretloom encode -c photo.png -p secret.pdf -k "correct horse battery staple"
 
-# Stealth JPEG DCT with custom bit depth
-stegoforge encode -c photo.jpg -p secret.bin -k "key" --method dct
+# Reveal a payload
+secretloom decode -f photo_stego.png -k "correct horse battery staple"
 
-# Spectrogram Art — Hide a visual image inside playable audio
-stegoforge encode -c music.wav -p logo.png --method spectrogram
+# Run the full forensic pipeline
+secretloom ctf -f suspicious.mp3
 
-# Decoy mode — Generates two keys, hiding two payloads in one file for plausible deniability
-stegoforge encode -c photo.png -p real_secret.txt -k "realkey" \
-                  --decoy decoy_message.txt --decoy-key "duresskey"
+# Check fit before embedding
+secretloom capacity -c photo.png --depth 1
+
+# Compare a clean carrier and its modified output
+secretloom diff -c photo.png -s photo_stego.png --save-heatmap heatmap.png
+
+# Launch the local workbench on another port
+secretloom web --port 5050
 ```
 
-### 🔓 2. Payload Decoding
-```bash
-stegoforge decode -f photo_stego.png -k "passphrase"
-stegoforge decode -f music_stego.wav -k "key" --method phase
-```
+Use `SECRETLOOM_KEY` to avoid placing a key in shell history. The original `STEGOFORGE_KEY` variable remains supported for existing automation, just like the `stegoforge` command alias.
 
-### 🕵️ 3. Blind Forensics & CTF Mode (Zero-Knowledge)
-```bash
-# Run the complete heuristic gauntlet natively (Highly Recommended)
-stegoforge ctf -f suspicious.png
+## Privacy and security
 
-# Targeted ML / Statistical Detection
-stegoforge detect --chi2 -f image.png
-stegoforge detect --rs -f image.png
-```
+The web interface and its static assets are served from the local process. Uploaded files are handled in temporary directories and are not sent to SecretLoom, the upstream project, or a third-party service. Generated download artifacts expire from the temporary directory cleanup cycle.
 
-### 🛰️ 4. Covert Protocols (Dead Drops)
-```bash
-# Embed a payload and securely POST it as a disguised HTTP packet
-stegoforge deadrop post -c cover.png -p msg.txt -k "shared_key"
+Some explicitly networked features are exceptions by design:
 
-# Monitor a remote image URL for an incoming payload change
-stegoforge deadrop monitor --url "https://example.com/image.png" -k "shared_key" --interval 20
-```
+- the release updater contacts GitHub when you run `secretloom update`;
+- dead-drop and covert network commands contact the destination you provide;
+- a missing ML model may be resolved by the existing engine setup workflow when not bundled by a distribution.
 
----
+SecretLoom is a research and forensics tool. Use it only with files, systems, and networks you are authorized to test. Encryption and steganography do not make unlawful activity lawful.
 
-## 🔬 Detection Methods Overview
-
-<details>
-<summary><b>Click to expand full list of Forensic Capabilities</b></summary>
-
-| Method | Target File | What It Automatically Detects |
-|---|---|---|
-| **Chi-square** | Images | LSB frequency distribution anomalies |
-| **RS Analysis** | Images | Payload capacity estimation without a key |
-| **ML Steganalysis** | Images | Learned stego likelihood from HuggingFace ONNX CNN models |
-| **Fingerprint** | Images | PRNU inconsistency + in-browser tamper heatmaps |
-| **Video anomaly** | MP4/WebM | Keyframe DCT-distribution anomalies |
-| **Audio anomaly** | WAV/FLAC/MP3 | Sample bit-plane and statistical irregularities |
-| **PDF anomaly** | PDF | Suspicious `/EmbeddedFile`, JS, or tail entropy |
-| **Blind extractor** | Multimedia | Auto-tries common bit-patterns and AES-magic headers |
-
-</details>
-
----
-
-## 📂 System Architecture
-
-<details>
-<summary><b>Click to explore StegoForge's Module Tree</b></summary>
+## Architecture
 
 ```text
-stegoforge/
+SecretLoom
+├── stegoforge.py        # CLI and stable compatibility module
 ├── core/
-│   ├── image/          # LSB, Adaptive WOW, DCT, PRNU Fingerprinting, Palette
-│   ├── audio/          # PCM LSB, Phase-Coding, Spectrogram visual embedding
-│   ├── video/          # Keyframe block-cost, motion temporal masks
-│   ├── document/       # PDF Streams, Office XML, Unicode Zero-Width
-│   ├── network/        # Timing channels, TCP field covert channels
-│   ├── crypto/         # AES-256-GCM, Decoy Deniability, Argon2 KDF
-│   └── binary/         # ELF / PE Slack space embedding
-├── detect/             # Statistical analysis, HuggingFace ONNX CNNs, Brute-forcing
-├── protocol/           # HTTP Dead Drops, X25519 Stego Key Exchange
-└── web/                # High-performance Flask dashboard & Server-Sent Events
+│   ├── image/           # LSB, adaptive, DCT, fingerprint, alpha, palette
+│   ├── audio/           # sample LSB, phase, spectrogram
+│   ├── video/           # DCT and motion-aware embedding
+│   ├── document/        # Unicode, linguistic, PDF, Office XML
+│   ├── binary/          # ELF and PE carriers
+│   ├── crypto/          # AES-GCM, Argon2id, decoy, wet paper
+│   └── network/         # TCP and timing channels
+├── detect/              # statistical, ML, metadata, and blind analysis
+├── protocol/            # dead drops and X25519 key exchange
+└── web/                 # Flask API and SecretLoom workbench
 ```
-</details>
 
----
+The `SFRG` magic header and internal module names are retained intentionally so SecretLoom can read files produced by StegoForge and vice versa.
 
-## 🚀 Supported Capabilities Matrix
+## Development
 
-| Carrier Format | Injection Method | Extraction Status | Forensic Blind Detection |
-|:---:|:---:|:---:|:---:|
-| **PNG** | ✅ LSB, Alpha, Palette | ✅ Supported | ✅ Supported |
-| **JPEG** | ✅ DCT | ✅ Supported | ✅ Supported |
-| **MP4** | ✅ Video DCT, Motion | ✅ Supported | ✅ Supported |
-| **WAV / MP3** | ✅ Sample, Phase, Spectro | ✅ Supported | ✅ Supported |
-| **PDF** | ✅ Object/Stream | ✅ Supported | ✅ Supported |
-| **Office XML** | ✅ XML Streams | ✅ Supported | ✅ Supported |
-| **ELF / PE** | ✅ Slack Space / Header | ✅ Supported | ✅ Supported |
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-web.txt pytest
 
-Social survivability targets currently supported via Reed-Solomon wrapping: `twitter`, `instagram`, `telegram`, `discord`, `whatsapp`, `signal`.
+pytest -q
+python -m py_compile web/app.py stegoforge.py
+node --check web/static/app.js
+```
 
----
+New carrier methods should implement the existing `BaseEncoder` contract and include focused pytest coverage. Interface changes should be checked at desktop and mobile widths.
 
-## ⚖️ Legal Disclaimer & Contributing
+## Attribution
 
-> **Strictly Educational Disclaimer:**
-> StegoForge was engineered strictly for digital forensics research, Capture The Flag (CTF) competitions, and lawful offensive security testing. 
-> Concealing illegal content, orchestrating unauthorized data exfiltration, or attempting to evade lawful surveillance is universally illegal. The author accepts zero liability for any misuse of this technology.
+SecretLoom is based on **StegoForge**, created by [Nour833](https://github.com/Nour833). The upstream project is available at [Nour833/StegoForge](https://github.com/Nour833/StegoForge) under the MIT License.
 
-**Contributing:**
-Pull requests are heavily welcomed. Please ensure new encoding methods implement the `BaseEncoder` interface and contain robust PyTest coverage.
+The original MIT copyright notice is preserved in [LICENSE](LICENSE). SecretLoom's interface, product identity, server hardening, documentation, and related modifications are maintained separately by the SecretLoom contributors. SecretLoom is not presented as the upstream project or an official upstream release.
 
-<div align="center">
-  <b>Built by Nour833. Coded for the community.</b><br>
-  <i>If you find StegoForge useful, educational, or just plain cool, consider leaving a ⭐!</i><br><br>
-  <a href="../../issues">Report a Bug</a> • <a href="../../issues">Request a Feature</a>
-</div>
+## License
+
+MIT. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

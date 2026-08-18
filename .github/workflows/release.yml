@@ -1,4 +1,4 @@
-name: Release Binaries
+name: Release SecretLoom
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to update (example: v1.1.5)"
+        description: "Existing tag to update (example: v2.0.0)"
         required: true
-        default: "v1.1.5"
+        default: "v2.0.0"
 
 permissions:
   contents: write
@@ -24,16 +24,16 @@ jobs:
         include:
           - os: ubuntu-latest
             is_linux: true
-            produced_name: stegoforge
-            asset_name: stegoforge-linux-x86_64
+            produced_name: secretloom
+            asset_name: secretloom-linux-x86_64
           - os: windows-latest
             is_linux: false
-            produced_name: stegoforge.exe
-            asset_name: stegoforge-windows-x86_64.exe
+            produced_name: secretloom.exe
+            asset_name: secretloom-windows-x86_64.exe
           - os: macos-14
             is_linux: false
-            produced_name: stegoforge
-            asset_name: stegoforge-macos-arm64
+            produced_name: secretloom
+            asset_name: secretloom-macos-arm64
 
     container: ${{ matrix.is_linux && 'python:3.10-slim-bullseye' || null }}
 
@@ -116,34 +116,38 @@ jobs:
       - name: Build deb
         run: |
           VERSION=$(python3 -c 'from core.version import __version__; print(__version__)')
-          DEB_NAME="stegoforge_${VERSION}_all"
+          DEB_NAME="secretloom_${VERSION}_all"
           BUILD_DIR="${RUNNER_TEMP}/${DEB_NAME}"
           
           mkdir -p "${BUILD_DIR}/DEBIAN"
-          mkdir -p "${BUILD_DIR}/usr/share/stegoforge"
+          mkdir -p "${BUILD_DIR}/usr/share/secretloom"
           mkdir -p "${BUILD_DIR}/usr/bin"
-          mkdir -p "${BUILD_DIR}/usr/share/doc/stegoforge"
+          mkdir -p "${BUILD_DIR}/usr/share/doc/secretloom"
           
-          cp -r core detect models protocol web stegoforge.py requirements.txt requirements-web.txt version_info.txt setup.py "${BUILD_DIR}/usr/share/stegoforge/"
-          chmod +x "${BUILD_DIR}/usr/share/stegoforge/stegoforge.py"
-          ln -s /usr/share/stegoforge/stegoforge.py "${BUILD_DIR}/usr/bin/stegoforge"
+          cp -r core detect models protocol web stegoforge.py requirements.txt requirements-web.txt version_info.txt setup.py pyproject.toml NOTICE.md "${BUILD_DIR}/usr/share/secretloom/"
+          chmod +x "${BUILD_DIR}/usr/share/secretloom/stegoforge.py"
+          cat <<'WRAPPER' > "${BUILD_DIR}/usr/bin/secretloom"
+          #!/bin/sh
+          exec python3 /usr/share/secretloom/stegoforge.py "$@"
+          WRAPPER
+          chmod +x "${BUILD_DIR}/usr/bin/secretloom"
+          ln -s secretloom "${BUILD_DIR}/usr/bin/stegoforge"
           
-          cp LICENSE "${BUILD_DIR}/usr/share/doc/stegoforge/copyright"
-          cp README.md "${BUILD_DIR}/usr/share/doc/stegoforge/README.md"
+          cp LICENSE "${BUILD_DIR}/usr/share/doc/secretloom/copyright"
+          cp README.md NOTICE.md "${BUILD_DIR}/usr/share/doc/secretloom/"
           
           cat <<EOF > "${BUILD_DIR}/DEBIAN/control"
-          Package: stegoforge
+          Package: secretloom
           Version: ${VERSION}
           Section: utils
           Priority: optional
           Architecture: all
-          Homepage: https://github.com/nour833/StegoForge
-          Depends: python3, python3-pip, python3-numpy, python3-scipy, python3-pil, python3-cryptography, python3-typer, python3-rich, python3-flask, python3-flask-cors, python3-pydub, python3-argon2, python3-docx, python3-openpyxl, python3-pypdf, python3-av, python3-scapy, python3-certifi, python3-requests
-          Maintainer: StegoForge <nourelislem84@outlook.fr>
-          Description: The most complete open-source steganography toolkit.
-           This is the native, lightweight distribution of StegoForge.
-           It relies on system-provided Python libraries where possible,
-           making it ideal for environments like Kali Linux and Debian.
+          Homepage: https://github.com/dlpwaters/secretloom
+          Depends: python3, python3-pip, python3-numpy, python3-scipy, python3-pil, python3-cryptography, python3-typer, python3-rich, python3-flask, python3-pydub, python3-argon2, python3-docx, python3-openpyxl, python3-pypdf, python3-av, python3-scapy, python3-certifi
+          Maintainer: dlpwaters <52935743+dlpwaters@users.noreply.github.com>
+          Description: Local-first steganography and forensics workbench.
+           SecretLoom provides a guided interface and compatible CLI for hiding,
+           revealing, detecting, and analyzing payloads across common carriers.
           EOF
           
           dpkg-deb --build "${BUILD_DIR}"
@@ -153,7 +157,7 @@ jobs:
       - name: Upload deb artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stegoforge-deb
+          name: secretloom-deb
           path: "*.deb"
           if-no-files-found: error
 
@@ -181,9 +185,9 @@ jobs:
       - name: Validate artifacts
         run: |
           ls -lh release-assets
-          test -f release-assets/stegoforge-linux-x86_64
-          test -f release-assets/stegoforge-windows-x86_64.exe
-          test -f release-assets/stegoforge-macos-arm64
+          test -f release-assets/secretloom-linux-x86_64
+          test -f release-assets/secretloom-windows-x86_64.exe
+          test -f release-assets/secretloom-macos-arm64
           test -n "$(find release-assets -name '*.deb')"
 
       - name: Publish assets to release
@@ -191,9 +195,9 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.value }}
           files: |
-            release-assets/stegoforge-linux-x86_64
-            release-assets/stegoforge-windows-x86_64.exe
-            release-assets/stegoforge-macos-arm64
+            release-assets/secretloom-linux-x86_64
+            release-assets/secretloom-windows-x86_64.exe
+            release-assets/secretloom-macos-arm64
             release-assets/*.deb
           overwrite_files: true
           fail_on_unmatched_files: true

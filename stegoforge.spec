@@ -2,7 +2,7 @@
 from PyInstaller.utils.hooks import collect_data_files
 
 datas = collect_data_files('onnxruntime')
-# Also pack StegoForge web assets
+# Also pack SecretLoom web assets
 datas.append(('web/templates/*', 'web/templates'))
 datas.append(('web/static/*', 'web/static'))
 # Bundle offline ML model so release works without network dependency.
@@ -27,7 +27,7 @@ import sys
 is_win = (sys.platform == 'win32')
 
 kwargs = dict(
-    name='stegoforge',
+    name='secretloom',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

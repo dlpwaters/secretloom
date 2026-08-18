@@ -1,6 +1,4 @@
-"""
-web/app.py - StegoForge Flask web interface.
-"""
+"""SecretLoom's local Flask interface, built on the StegoForge engine."""
 import io
 import json
 import os
@@ -9,18 +7,35 @@ import tempfile
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, stream_with_context
-from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-ARTIFACT_PREFIX = "stegoforge_web_artifact_"
+ARTIFACT_PREFIX = "secretloom_web_artifact_"
+LEGACY_ARTIFACT_PREFIX = "stegoforge_web_artifact_"
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 
 
 def _as_bool(form, key: str, default: bool = False) -> bool:
     if key not in form:
         return default
     return str(form.get(key, "")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _as_depth(form, key: str = "depth", default: int = 1) -> int:
+    try:
+        value = int(form.get(key, default))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Bit depth must be a whole number from 1 to 4") from exc
+    if value not in {1, 2, 3, 4}:
+        raise ValueError("Bit depth must be between 1 and 4")
+    return value
+
+
+def _safe_upload_name(upload, fallback: str) -> str:
+    """Return a basename-safe upload name without trusting browser metadata."""
+    return secure_filename(upload.filename or "") or fallback
 
 
 def _json_sse(payload: dict) -> str:
@@ -30,9 +45,11 @@ def _json_sse(payload: dict) -> str:
 def _artifact_allowed(path: Path) -> bool:
     if not path.exists() or not path.is_file():
         return False
-    if path.name.startswith(ARTIFACT_PREFIX):
+    resolved = path.resolve()
+    tmp_dir = Path(tempfile.gettempdir()).resolve()
+    if resolved.parent == tmp_dir and path.name.startswith((ARTIFACT_PREFIX, LEGACY_ARTIFACT_PREFIX)):
         return True
-    if path.name.endswith("_fingerprint_heatmap.png") and path.parent.resolve() == Path.cwd().resolve():
+    if path.name.endswith("_fingerprint_heatmap.png") and resolved.parent == Path.cwd().resolve():
         return True
     return False
 
@@ -42,7 +59,7 @@ def _persist_artifact(data: bytes, suffix: str = ".bin") -> str:
     with tempfile.NamedTemporaryFile(prefix=ARTIFACT_PREFIX, suffix=suffix, delete=False) as tmp:
         tmp.write(data)
         tmp.flush()
-        return tmp.name
+        return Path(tmp.name).name
 
 
 def _is_video_name(name: str) -> bool:
@@ -106,12 +123,13 @@ def _cleanup_old_artifacts(max_age_seconds: int = 3600):
     import time
     now = time.time()
     tmp_dir = Path(tempfile.gettempdir())
-    for f in tmp_dir.glob(f"{ARTIFACT_PREFIX}*"):
-        try:
-            if now - f.stat().st_mtime > max_age_seconds:
-                f.unlink(missing_ok=True)
-        except OSError:
-            pass
+    for prefix in (ARTIFACT_PREFIX, LEGACY_ARTIFACT_PREFIX):
+        for f in tmp_dir.glob(f"{prefix}*"):
+            try:
+                if now - f.stat().st_mtime > max_age_seconds:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _encode_operation(form, files) -> tuple[dict, bytes, str]:
@@ -119,7 +137,7 @@ def _encode_operation(form, files) -> tuple[dict, bytes, str]:
     payload_file = files.get("payload")
     key = form.get("key", "")
     method = form.get("method", None) or None
-    depth = int(form.get("depth", 1))
+    depth = _as_depth(form)
     decoy_file = files.get("decoy")
     decoy_key = form.get("decoy_key", None)
     wet_paper = _as_bool(form, "wet_paper", False)
@@ -135,8 +153,8 @@ def _encode_operation(form, files) -> tuple[dict, bytes, str]:
     from stegoforge import op_encode
     from core.audio._convert import has_ffmpeg
 
-    carrier_name = carrier_file.filename or "carrier.bin"
-    payload_name = payload_file.filename or "payload.bin"
+    carrier_name = _safe_upload_name(carrier_file, "carrier.bin")
+    payload_name = _safe_upload_name(payload_file, "payload.bin")
 
     if _is_video_method(method) or (not method and _is_video_name(carrier_name)):
         if not has_ffmpeg():
@@ -151,7 +169,7 @@ def _encode_operation(form, files) -> tuple[dict, bytes, str]:
 
         decoy_path = None
         if decoy_file and decoy_key:
-            decoy_name = decoy_file.filename or "decoy.bin"
+            decoy_name = _safe_upload_name(decoy_file, "decoy.bin")
             decoy_path = td_path / decoy_name
             decoy_path.write_bytes(decoy_file.read())
 
@@ -191,7 +209,7 @@ def _decode_operation(form, files) -> tuple[dict, bytes]:
     from stegoforge import op_decode
     from core.audio._convert import has_ffmpeg
 
-    filename = stego_file.filename or "stego.bin"
+    filename = _safe_upload_name(stego_file, "stego.bin")
     if _is_video_method(method) or (not method and _is_video_name(filename)):
         if not has_ffmpeg():
             raise ValueError("Video methods require ffmpeg. Install with: sudo apt install ffmpeg")
@@ -224,14 +242,45 @@ def create_app():
         app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
     else:
         app = Flask(__name__, template_folder="templates", static_folder="static")
-    CORS(app)
-    app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB max upload
+    app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
     _cleanup_old_artifacts()
+
+    @app.after_request
+    def secure_local_response(response):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; "
+            "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
+            "font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        )
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
+    @app.errorhandler(413)
+    def upload_too_large(_error):
+        return jsonify({"error": "File is too large. SecretLoom accepts uploads up to 200 MB."}), 413
 
     @app.route("/")
     def index():
         return render_template("index.html", initial_tab="encode")
+
+    @app.route("/api/health")
+    def api_health():
+        from core.version import __version__
+
+        return jsonify(
+            {
+                "product": "SecretLoom",
+                "engine": "StegoForge",
+                "version": __version__,
+                "local_only": True,
+                "max_upload_bytes": MAX_UPLOAD_BYTES,
+            }
+        )
 
     @app.route("/survive")
     def survive_page():
@@ -239,10 +288,16 @@ def create_app():
 
     @app.route("/artifact")
     def artifact_file():
-        p = request.args.get("path", "")
-        if not p:
-            return jsonify({"error": "Missing path"}), 400
-        artifact = Path(p)
+        artifact_id = request.args.get("id", "")
+        legacy_path = request.args.get("path", "")
+        if artifact_id:
+            if Path(artifact_id).name != artifact_id:
+                return jsonify({"error": "Invalid artifact identifier"}), 400
+            artifact = Path(tempfile.gettempdir()) / artifact_id
+        elif legacy_path:
+            artifact = Path(legacy_path)
+        else:
+            return jsonify({"error": "Missing artifact identifier"}), 400
         if not _artifact_allowed(artifact):
             return jsonify({"error": "Artifact not found"}), 404
         return send_file(str(artifact), as_attachment=False)
@@ -274,14 +329,14 @@ def create_app():
         try:
             upload = request.files.get("file")
             payload = request.files.get("payload")
-            depth = int(request.form.get("depth", 1))
+            depth = _as_depth(request.form)
             if not upload:
                 return jsonify({"error": "No carrier file provided"}), 400
 
             from stegoforge import op_capacity
 
             payload_size = len(payload.read()) if payload else 0
-            filename = upload.filename or "carrier.bin"
+            filename = _safe_upload_name(upload, "carrier.bin")
             carrier_bytes = upload.read()
 
             methods = [
@@ -334,6 +389,8 @@ def create_app():
                     "rows": rows,
                 }
             )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
@@ -345,7 +402,7 @@ def create_app():
             key = request.form.get("key", "")
             target = request.form.get("target", "twitter")
             method = request.form.get("method", None) or None
-            depth = int(request.form.get("depth", 1))
+            depth = _as_depth(request.form)
 
             if not carrier_file or not payload_file:
                 return jsonify({"error": "carrier and payload are required"}), 400
@@ -354,8 +411,8 @@ def create_app():
 
             with tempfile.TemporaryDirectory(prefix="stegoforge_web_survive_") as td:
                 td_path = Path(td)
-                carrier_path = td_path / (carrier_file.filename or "carrier.bin")
-                payload_path = td_path / (payload_file.filename or "payload.bin")
+                carrier_path = td_path / _safe_upload_name(carrier_file, "carrier.bin")
+                payload_path = td_path / _safe_upload_name(payload_file, "payload.bin")
                 carrier_path.write_bytes(carrier_file.read())
                 payload_path.write_bytes(payload_file.read())
 
@@ -379,6 +436,8 @@ def create_app():
                 )
 
             return jsonify(result)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -417,7 +476,7 @@ def create_app():
                     yield _json_sse({"type": "error", "text": "No file provided"})
                     return
 
-                filename = upload.filename or "file.bin"
+                filename = _safe_upload_name(upload, "file.bin")
                 raw = upload.read()
 
                 toggle_keys = ["chi2", "rs", "exif", "blind", "ml", "fingerprint", "binary"]
@@ -502,10 +561,12 @@ def create_app():
             # For encrypted/opaque blobs, add a hint in the header
             extra_headers = {}
             if payload[:4] == b"SFRG":
-                extra_headers["X-StegoForge-Hint"] = (
-                    "Payload appears to be another StegoForge-encrypted blob. "
-                    "Use 'stegoforge decode' with the correct key to unwrap it."
+                hint = (
+                    "Payload appears to be another SecretLoom/StegoForge-encrypted blob. "
+                    "Use 'secretloom decode' with the correct key to unwrap it."
                 )
+                extra_headers["X-SecretLoom-Hint"] = hint
+                extra_headers["X-StegoForge-Hint"] = hint
 
             buf = io.BytesIO(payload)
             buf.seek(0)
@@ -547,7 +608,7 @@ def create_app():
 
             from stegoforge import op_detect
 
-            filename = upload.filename or "file.bin"
+            filename = _safe_upload_name(upload, "file.bin")
             with tempfile.TemporaryDirectory(prefix="stegoforge_web_detect_") as td:
                 td_path = Path(td)
                 file_path = td_path / filename
@@ -567,6 +628,8 @@ def create_app():
 
             return jsonify({"file": filename, "results": report["results"]})
 
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -579,7 +642,7 @@ def create_app():
 
             from stegoforge import op_ctf
 
-            filename = upload.filename or "file.bin"
+            filename = _safe_upload_name(upload, "file.bin")
             extracted = None
             with tempfile.TemporaryDirectory(prefix="stegoforge_web_ctf_") as td:
                 td_path = Path(td)
@@ -601,8 +664,8 @@ def create_app():
                 extracted_mime, extracted_ext = _detect_payload_type(extracted)
                 if extracted[:4] == b"SFRG":
                     extra_notes.append(
-                        "⚠ Extracted payload starts with SFRG magic — this is a StegoForge "
-                        "AES-256-GCM encrypted blob. Use 'stegoforge decode -f <carrier> -k <key>' "
+                        "⚠ Extracted payload starts with SFRG magic — this is a SecretLoom/StegoForge-compatible "
+                        "AES-256-GCM encrypted blob. Use 'secretloom decode -f <carrier> -k <key>' "
                         "with the correct passphrase to decrypt it."
                     )
                 else:
@@ -646,14 +709,14 @@ def create_app():
 
             upload = request.files.get("file")
             method = request.form.get("method", None)
-            depth = int(request.form.get("depth", 1))
+            depth = _as_depth(request.form)
 
             if not upload:
                 return jsonify({"error": "No file provided"}), 400
 
             from stegoforge import op_capacity
 
-            filename = upload.filename or "file.bin"
+            filename = _safe_upload_name(upload, "file.bin")
             with tempfile.TemporaryDirectory(prefix="stegoforge_web_capacity_") as td:
                 td_path = Path(td)
                 file_path = td_path / filename
@@ -663,6 +726,8 @@ def create_app():
             result["file"] = filename
             return jsonify(result)
 
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -679,8 +744,8 @@ def create_app():
 
             with tempfile.TemporaryDirectory(prefix="stegoforge_web_diff_") as td:
                 td_path = Path(td)
-                c_path = td_path / (cover_file.filename or "cover.bin")
-                s_path = td_path / (stego_file.filename or "stego.bin")
+                c_path = td_path / _safe_upload_name(cover_file, "cover.bin")
+                s_path = td_path / _safe_upload_name(stego_file, "stego.bin")
                 map_path = td_path / "heatmap.png"
 
                 c_path.write_bytes(cover_file.read())
@@ -709,5 +774,5 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
     app = create_app()
-    print(f"StegoForge Web UI -> http://localhost:{args.port}")
+    print(f"SecretLoom Web UI -> http://localhost:{args.port}")
     app.run(host="127.0.0.1", port=args.port, debug=False)

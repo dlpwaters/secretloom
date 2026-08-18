@@ -1,8 +1,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 1, 5, 0),
-    prodvers=(1, 1, 5, 0),
+    filevers=(2, 0, 0, 0),
+    prodvers=(2, 0, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -15,14 +15,14 @@ VSVersionInfo(
       [
       StringTable(
         '040904B0',
-        [StringStruct('CompanyName', 'StegoForge'),
-        StringStruct('FileDescription', 'StegoForge Toolkit'),
-        StringStruct('FileVersion', '1.1.5'),
-        StringStruct('InternalName', 'stegoforge'),
-        StringStruct('LegalCopyright', 'Copyright 2026'),
-        StringStruct('OriginalFilename', 'stegoforge.exe'),
-        StringStruct('ProductName', 'StegoForge'),
-        StringStruct('ProductVersion', '1.1.5')])
+        [StringStruct('CompanyName', 'SecretLoom contributors'),
+        StringStruct('FileDescription', 'SecretLoom local steganography workbench'),
+        StringStruct('FileVersion', '2.0.0'),
+        StringStruct('InternalName', 'secretloom'),
+        StringStruct('LegalCopyright', 'Copyright 2026; based on StegoForge by Nour833'),
+        StringStruct('OriginalFilename', 'secretloom.exe'),
+        StringStruct('ProductName', 'SecretLoom'),
+        StringStruct('ProductVersion', '2.0.0')])
       ]), 
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
